@@ -1,0 +1,651 @@
+/* 庄子 · 互动书 —— 书桌上的一本精装书 */
+
+:root {
+  --paper: #f3ead8;
+  --paper-edge: #e4d6ba;
+  --ink: #2a241f;
+  --ink-soft: #6a5c4e;
+  --ink-faint: #9b8b78;
+  --seal: #a9493a;
+  --cloth: #7d978f;
+  --cloth-deep: #5f7a72;
+  --endpaper: #e8d9b8;
+
+  /* 由 book.js 按视口写入 */
+  --pw: 360px;
+  --ph: 560px;
+  --fs: 17px;
+  --lh: 32px;
+  --bw: 306px;
+  --bh: 448px;
+  --pt: 56px;
+  --pin: 27px;
+  --thL: 0px;
+  --thR: 8px;
+  --shift: 0px;
+  --persp: 1600px;
+
+  --serif: "Noto Serif SC", "Songti SC", "STSong", "Source Han Serif SC", "SimSun", serif;
+
+  --paper-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .33 0 0 0 0 .2 0 0 0 .075 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012 .09' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .4 0 0 0 0 .25 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --cloth-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7 .35' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .14 0 0 0 0 .12 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E");
+  --wood-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='450'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0018 .055' numOctaves='4' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .22 0 0 0 0 .11 0 0 0 0 .04 0 0 0 1.1 -.42'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  --seigaiha: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20' viewBox='0 0 40 20'%3E%3Cdefs%3E%3Cg id='s'%3E%3Ccircle r='19.5' fill='%23e8d9b8'/%3E%3Cg fill='none' stroke='%23b4956a' stroke-opacity='.42'%3E%3Ccircle r='19'/%3E%3Ccircle r='15'/%3E%3Ccircle r='11'/%3E%3Ccircle r='7'/%3E%3Ccircle r='3'/%3E%3C/g%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23s' x='20' y='0'/%3E%3Cuse href='%23s' x='0' y='10'/%3E%3Cuse href='%23s' x='40' y='10'/%3E%3Cuse href='%23s' x='20' y='20'/%3E%3Cuse href='%23s' x='0' y='30'/%3E%3Cuse href='%23s' x='40' y='30'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #7a5034;
+  color: var(--ink);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button { font: inherit; color: inherit; }
+
+/* ---------- 书桌 ---------- */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.desk {
+  position: absolute;
+  inset: 0;
+  background-color: #8d5e3b;
+  background-image:
+    var(--wood-grain),
+    repeating-linear-gradient(180deg,
+      transparent 0, transparent calc(33.3vh - 2px),
+      rgba(52, 28, 12, .28) calc(33.3vh - 2px), rgba(52, 28, 12, .28) calc(33.3vh - 1px),
+      rgba(255, 220, 180, .07) calc(33.3vh - 1px), rgba(255, 220, 180, .07) 33.3vh),
+    linear-gradient(178deg, #9a6943 0%, #8a5a37 34%, #94633f 35%, #87573a 66%, #8f5f3c 67%, #80522f 100%);
+  background-size: 900px 450px, 100% 100%, 100% 100%;
+}
+
+/* 台灯光与暗角，压在最上层但不挡操作 */
+.light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    radial-gradient(ellipse 70% 60% at 28% 18%, rgba(255, 226, 170, .22), rgba(255, 226, 170, 0) 70%),
+    radial-gradient(ellipse 120% 95% at 50% 45%, rgba(30, 14, 4, 0) 58%, rgba(30, 14, 4, .42) 100%);
+}
+
+/* ---------- 舞台与书 ---------- */
+
+.stage {
+  position: absolute;
+  inset: 0;
+  bottom: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.book {
+  position: relative;
+  width: calc(var(--pw) * 2);
+  height: var(--ph);
+  perspective: var(--persp);
+  transform: translateX(var(--shift));
+  transition: transform 640ms cubic-bezier(.55, .08, .3, 1);
+}
+
+.one .book { width: var(--pw); }
+.book.no-anim { transition: none; }
+.book.is-loading { opacity: 0; }
+
+.half {
+  position: absolute;
+  top: 0;
+  width: var(--pw);
+  height: var(--ph);
+  z-index: 1;
+}
+.half-left  { left: 0; }
+.half-right { left: var(--pw); }
+.one .half-left { display: none; }
+.one .half-right { left: 0; }
+.half.empty { visibility: hidden; }
+
+/* 封板：比书页略大一圈的布面硬壳 */
+.half::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  z-index: -2;
+  background: var(--cloth-deep) var(--cloth-noise);
+  box-shadow:
+    0 1px 2px rgba(30, 15, 5, .35),
+    14px 22px 36px rgba(35, 18, 6, .42);
+}
+.half-left::after  { left: calc(-9px - var(--thL)); right: 0; border-radius: 5px 0 0 5px; }
+.half-right::after { right: calc(-9px - var(--thR)); left: 0; border-radius: 0 5px 5px 0; }
+
+/* 书页厚度：外侧叠起的纸边 */
+.half::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: -2px;
+  z-index: -1;
+  background: repeating-linear-gradient(90deg, #efe4cc 0 1px, #cdbd9d 1px 2px);
+}
+.half-left::before  { left: calc(-1 * var(--thL)); width: var(--thL); border-radius: 3px 0 0 3px; }
+.half-right::before { right: calc(-1 * var(--thR)); width: var(--thR); border-radius: 0 3px 3px 0; }
+
+.half[data-kind="cover"]::before, .half[data-kind="cover"]::after,
+.half[data-kind="backcover"]::before, .half[data-kind="backcover"]::after { display: none; }
+
+/* 书脊：两块封板之间的布面 */
+.spine {
+  position: absolute;
+  top: -9px;
+  bottom: -9px;
+  left: calc(var(--pw) - 9px);
+  width: 18px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #4f675f, #6b867d 50%, #4f675f);
+  box-shadow: 0 16px 30px rgba(35, 18, 6, .35);
+  transition: opacity 300ms;
+}
+.one .spine { left: -12px; width: 14px; }
+.book.closed .spine { opacity: 0; }
+
+.ribbon {
+  position: absolute;
+  top: calc(100% - 14px);
+  left: calc(var(--pw) + 14px);
+  width: 13px;
+  height: 58px;
+  z-index: 3;
+  background: linear-gradient(90deg, #4c6760, #6f8c83 45%, #4c6760);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+  filter: drop-shadow(2px 3px 2px rgba(30, 15, 5, .3));
+  transition: opacity 300ms;
+}
+.one .ribbon { left: 22px; }
+.book.closed .ribbon { opacity: 0; }
+
+/* ---------- 纸页 ---------- */
+
+.page {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--paper);
+  background-image:
+    var(--paper-noise),
+    var(--paper-fiber),
+    radial-gradient(ellipse 115% 100% at 50% 50%, rgba(255, 252, 240, .35) 0%, rgba(255, 252, 240, 0) 55%, rgba(150, 115, 70, .12) 100%);
+  color: var(--ink);
+}
+
+/* 订口阴影与纸张弧度 */
+.page.side-right {
+  border-radius: 0 3px 3px 0;
+  box-shadow: inset 0 0 0 1px rgba(150, 120, 80, .1);
+}
+.page.side-left {
+  border-radius: 3px 0 0 3px;
+  box-shadow: inset 0 0 0 1px rgba(150, 120, 80, .1);
+}
+.page.side-right::before,
+.page.side-left::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 16%;
+  pointer-events: none;
+  z-index: 2;
+}
+.page.side-right::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(90, 62, 30, .26), rgba(90, 62, 30, .08) 22%, rgba(255, 250, 235, .14) 48%, rgba(255, 250, 235, 0));
+}
+.page.side-left::before {
+  right: 0;
+  background: linear-gradient(270deg, rgba(90, 62, 30, .28), rgba(90, 62, 30, .09) 22%, rgba(255, 250, 235, .12) 48%, rgba(255, 250, 235, 0));
+}
+.one .page.side-right::before { width: 9%; }
+
+.page > .shade {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+.side-right > .shade { background: linear-gradient(90deg, rgba(45, 28, 12, .5), rgba(45, 28, 12, .12) 55%, rgba(45, 28, 12, 0)); }
+.side-left  > .shade { background: linear-gradient(270deg, rgba(45, 28, 12, .5), rgba(45, 28, 12, .12) 55%, rgba(45, 28, 12, 0)); }
+
+/* 正文区：宽度为字号整数倍，高度为行高整数倍 */
+.page-body {
+  position: absolute;
+  top: var(--pt);
+  width: var(--bw);
+  height: var(--bh);
+  overflow: hidden;
+  font-size: var(--fs);
+  line-height: var(--lh);
+  text-align: justify;
+  text-justify: inter-character;
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  font-kerning: none;
+}
+.side-right .page-body { left: var(--pin); }
+.side-left  .page-body { right: var(--pin); }
+
+.page-body p {
+  margin: 0;
+  text-indent: 2em;
+}
+.page-body p.cont { text-indent: 0; }
+.page-body p.split { text-align-last: justify; }
+
+.run-head, .folio {
+  position: absolute;
+  font-size: calc(var(--fs) * .72);
+  letter-spacing: .18em;
+  color: var(--ink-faint);
+  line-height: 1;
+  white-space: nowrap;
+}
+.run-head { top: calc(var(--pt) * .42); }
+.folio { bottom: calc(var(--pt) * .42); font-variant-numeric: oldstyle-nums; letter-spacing: .06em; }
+.side-right .run-head, .side-right .folio { right: calc(var(--pw) - var(--pin) - var(--bw)); }
+.side-left .run-head, .side-left .folio  { left: calc(var(--pw) - var(--pin) - var(--bw)); }
+.one .folio { right: auto; left: 0; width: 100%; text-align: center; }
+
+/* 篇首 */
+.ch-head {
+  height: calc(var(--lh) * 6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-indent: 0;
+}
+.two .ch-head { height: calc(var(--lh) * 7); }
+.ch-part {
+  font-size: .78em;
+  letter-spacing: .4em;
+  color: var(--ink-soft);
+  line-height: var(--lh);
+  padding-left: .4em;
+}
+.ch-title {
+  font-size: 1.85em;
+  font-weight: 600;
+  letter-spacing: .32em;
+  padding-left: .32em;
+  line-height: calc(var(--lh) * 1.8);
+}
+.orn {
+  display: block;
+  width: 6.5em;
+  height: .8em;
+  margin-top: .35em;
+  color: var(--ink-faint);
+}
+
+/* 导读 · 目录 标题 */
+.fm-head {
+  height: calc(var(--lh) * 4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.45em;
+  font-weight: 600;
+  letter-spacing: .6em;
+  padding-left: .6em;
+  text-indent: 0;
+}
+.fm-head .orn { font-size: calc(var(--fs) * .9); margin-top: .6em; }
+
+.page--intro .page-body p { color: #362e27; }
+
+/* 目录 */
+.toc-part {
+  height: calc(var(--lh) * 2);
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: calc(var(--lh) * .22);
+  font-weight: 600;
+  letter-spacing: .3em;
+  color: var(--ink-soft);
+  font-size: .92em;
+}
+.toc-part::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  margin: 0 0 .45em .6em;
+  background: linear-gradient(90deg, rgba(106, 92, 78, .45), rgba(106, 92, 78, 0));
+}
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  height: var(--lh);
+  color: inherit;
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 .25em;
+  cursor: pointer;
+  transition: background-color 160ms;
+}
+.toc-item:hover, .toc-item:focus-visible { background-color: rgba(140, 105, 60, .1); outline: none; }
+.toc-no { color: var(--ink-faint); font-size: .8em; width: 5.6em; flex: none; letter-spacing: .05em; }
+.toc-t  { flex: none; letter-spacing: .08em; }
+.toc-dots {
+  flex: 1;
+  margin: 0 .5em;
+  border-bottom: 1px dotted rgba(106, 92, 78, .5);
+  transform: translateY(-.3em);
+}
+.toc-pg { flex: none; font-size: .82em; color: var(--ink-soft); font-variant-numeric: tabular-nums; min-width: 1.8em; text-align: right; }
+
+/* ---------- 扉页 / 出版说明 ---------- */
+
+.tp {
+  position: absolute;
+  top: var(--pt);
+  bottom: var(--pt);
+  width: var(--bw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-size: var(--fs);
+}
+.side-right .tp { left: var(--pin); }
+.side-left .tp  { right: var(--pin); }
+.tp-top {
+  flex: 1.2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.tp-title { font-size: 2.6em; font-weight: 600; letter-spacing: .5em; padding-left: .5em; line-height: 1.3; }
+.tp-author { margin-top: .9em; color: var(--ink-soft); letter-spacing: .25em; font-size: .92em; }
+.tp-top .orn { margin-top: 1.2em; }
+.tp-note {
+  flex: 1;
+  width: 100%;
+  font-size: .8em;
+  line-height: 1.85;
+  color: #4a4038;
+  text-align: justify;
+}
+.tp-note h2 {
+  margin: 0 0 .7em;
+  font-size: 1.1em;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: .4em;
+  padding-left: .4em;
+  color: var(--ink);
+}
+.tp-note p { margin: 0 0 .35em; text-align: center; }
+.tp-foot { font-size: .72em; color: var(--ink-faint); letter-spacing: .2em; padding-left: .2em; }
+
+/* ---------- 封面 / 封底 ---------- */
+
+.page--cover, .page--backcover {
+  background-color: var(--cloth);
+  background-image:
+    linear-gradient(135deg, rgba(255, 244, 220, .2), rgba(255, 244, 220, 0) 45%, rgba(20, 30, 25, .16) 100%),
+    var(--cloth-noise),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, .04) 0 1px, transparent 1px 3px);
+  color: #f4ecdb;
+}
+.page--cover.side-right { border-radius: 2px 6px 6px 2px; box-shadow: inset 0 0 0 1px rgba(20, 30, 25, .25), 0 1px 2px rgba(30, 15, 5, .4), 16px 24px 38px rgba(35, 18, 6, .45); overflow: visible; }
+.page--backcover.side-left { border-radius: 6px 2px 2px 6px; box-shadow: inset 0 0 0 1px rgba(20, 30, 25, .25), 0 1px 2px rgba(30, 15, 5, .4), 12px 24px 38px rgba(35, 18, 6, .45); overflow: visible; }
+.page--cover::before, .page--backcover::before { display: none; }
+
+/* 精装书的“书槽” */
+.page--cover::after, .page--backcover::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  background: linear-gradient(90deg, rgba(20, 30, 25, .22), rgba(255, 255, 255, .1) 60%, rgba(20, 30, 25, .1));
+}
+.page--cover::after { left: 16px; }
+.page--backcover::after { right: 16px; }
+
+.cover-frame {
+  position: absolute;
+  inset: 7% 8% 7% 11%;
+  border: 1px solid rgba(244, 236, 219, .35);
+  box-shadow: inset 0 0 0 4px rgba(244, 236, 219, 0), inset 0 0 0 5px rgba(244, 236, 219, .2);
+  border-radius: 2px;
+}
+.cover-slip {
+  position: absolute;
+  top: 12%;
+  right: 16%;
+  width: 22%;
+  height: 50%;
+  padding: 8% 5%;
+  display: flex;
+  justify-content: center;
+  gap: 6%;
+  background: var(--paper) var(--paper-noise);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(20, 30, 25, .35), inset 0 0 0 3px var(--paper), inset 0 0 0 4px rgba(42, 36, 31, .55);
+  writing-mode: vertical-rl;
+}
+.cover-title {
+  font-size: calc(var(--pw) * .082);
+  font-weight: 600;
+  letter-spacing: .14em;
+}
+.cover-author {
+  font-size: calc(var(--pw) * .036);
+  color: var(--ink-soft);
+  letter-spacing: .3em;
+  align-self: flex-end;
+}
+.seal {
+  position: absolute;
+  top: calc(12% + 50% + 3%);
+  right: calc(16% + 11% - 5.5%);
+  width: 11%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: var(--seal);
+  color: #f6e7d8;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px var(--seal), inset 0 0 0 3px rgba(246, 231, 216, .75);
+  font-size: calc(var(--pw) * .028);
+  font-weight: 600;
+  line-height: 1.05;
+  writing-mode: vertical-rl;
+  letter-spacing: .05em;
+  transform: rotate(-2deg);
+  opacity: .92;
+}
+.cover-art {
+  position: absolute;
+  left: 15%;
+  bottom: 13%;
+  width: 44%;
+  color: #f1e7d2;
+  opacity: .8;
+}
+.cover-foot {
+  position: absolute;
+  left: 15%;
+  top: 12%;
+  writing-mode: vertical-rl;
+  font-size: calc(var(--pw) * .03);
+  letter-spacing: .45em;
+  color: rgba(244, 236, 219, .75);
+}
+.back-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  transform: translate(-50%, -50%);
+  color: rgba(30, 45, 40, .28);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .18));
+}
+
+/* 环衬 */
+.page--endpaper {
+  background-color: var(--endpaper);
+  background-image:
+    linear-gradient(90deg, rgba(232, 217, 184, 0), rgba(232, 217, 184, 0)),
+    var(--paper-noise),
+    var(--seigaiha);
+  background-size: auto, 180px 180px, 40px 20px;
+}
+.page--verso { background-color: #efe5d1; }
+
+/* ---------- 翻页 ---------- */
+
+.leaf {
+  position: absolute;
+  top: 0;
+  width: var(--pw);
+  height: var(--ph);
+  z-index: 10;
+  transform-style: preserve-3d;
+  will-change: transform;
+  pointer-events: none;
+}
+.leaf--right { left: var(--pw); transform-origin: 0 50%; }
+.leaf--left  { left: 0; transform-origin: 100% 50%; }
+.one .leaf--right { left: 0; }
+
+.face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.face--back { transform: rotateY(180deg); }
+.face > .fshade {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  opacity: 0;
+  pointer-events: none;
+}
+/* 弯曲的光影：近书脊处暗，翻起的一侧有一道柔光 */
+.leaf--right .face--front > .fshade,
+.leaf--left .face--back > .fshade {
+  background: linear-gradient(90deg, rgba(50, 30, 12, .1) 0%, rgba(50, 30, 12, .28) 45%, rgba(255, 248, 228, .22) 78%, rgba(50, 30, 12, .34) 100%);
+}
+.leaf--right .face--back > .fshade,
+.leaf--left .face--front > .fshade {
+  background: linear-gradient(270deg, rgba(50, 30, 12, .1) 0%, rgba(50, 30, 12, .28) 45%, rgba(255, 248, 228, .22) 78%, rgba(50, 30, 12, .34) 100%);
+}
+
+/* ---------- 控件 ---------- */
+
+.controls {
+  position: absolute;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.ctl {
+  border: 0;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(243, 234, 216, .78);
+  color: #4a3d31;
+  font-size: 13px;
+  letter-spacing: .08em;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(40, 20, 6, .3), 0 4px 10px rgba(40, 20, 6, .14);
+  transition: background-color 160ms, opacity 160ms;
+}
+.ctl:hover { background: rgba(248, 241, 226, .95); }
+.ctl:focus-visible { outline: 2px solid rgba(243, 234, 216, .9); outline-offset: 2px; }
+.ctl:disabled { opacity: .35; cursor: default; }
+.indicator {
+  min-width: 11.5em;
+  text-align: center;
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  color: rgba(248, 239, 222, .92);
+  text-shadow: 0 1px 2px rgba(30, 14, 4, .55);
+  font-variant-numeric: tabular-nums;
+}
+
+.loading {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 46%;
+  margin: 0;
+  text-align: center;
+  color: rgba(248, 239, 222, .85);
+  letter-spacing: .4em;
+  text-shadow: 0 1px 2px rgba(30, 14, 4, .5);
+  z-index: 6;
+  transition: opacity 300ms;
+}
+.loading.hidden { opacity: 0; pointer-events: none; }
+
+.noscript {
+  position: fixed;
+  inset: auto 0 40% 0;
+  text-align: center;
+  color: #f3ead8;
+  z-index: 9;
+}
+
+/* 离屏排版用 */
+.measure-wrap {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: var(--pw);
+  height: var(--ph);
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style size;
+}
+
+@media (max-width: 480px) {
+  .ctl { padding: 7px 11px; }
+  .ctl span { display: none; }
+  .indicator { min-width: 7.5em; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book { transition: none; }
+}

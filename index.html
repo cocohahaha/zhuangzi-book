@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>庄子 · 互动书</title>
+<meta name="description" content="《庄子》三十三篇全文互动书：内篇七、外篇十五、杂篇十一。文本来自维基文库（公有领域）。">
+<meta name="theme-color" content="#6b4a30">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/book.css">
+</head>
+<body>
+<main class="scene" id="scene">
+  <div class="desk" aria-hidden="true"></div>
+
+  <div class="stage" id="stage">
+    <div class="book is-loading" id="book" role="region" aria-label="庄子" aria-live="polite">
+      <div class="spine" aria-hidden="true"></div>
+      <div class="half half-left empty" id="half-left"></div>
+      <div class="half half-right empty" id="half-right"></div>
+      <div class="ribbon" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <div class="light" aria-hidden="true"></div>
+
+  <p class="loading" id="loading">展卷中……</p>
+
+  <nav class="controls" id="controls" aria-label="翻页">
+    <button type="button" class="ctl" id="btn-prev" aria-label="上一页">‹ <span>上一页</span></button>
+    <button type="button" class="ctl ctl-toc" id="btn-toc">目录</button>
+    <span class="indicator" id="indicator" aria-live="polite"></span>
+    <button type="button" class="ctl" id="btn-next" aria-label="下一页"><span>下一页</span> ›</button>
+  </nav>
+</main>
+
+<div class="measure-wrap" aria-hidden="true">
+  <div class="page page--text side-right" id="measure"><div class="page-body"></div></div>
+</div>
+
+<noscript><p class="noscript">本书需要启用 JavaScript 才能翻阅。</p></noscript>
+<script src="js/book.js"></script>
+</body>
+</html>
