@@ -124,7 +124,7 @@ function soundArcs(g, x, y, s, dir = 1) {
 const ch20 = {
   ground(g) {
     for (let i = 0; i < 9; i++) g.stroke([[-0.4 + i * 0.05, -0.05 - (i % 3) * 0.02], [-0.395 + i * 0.05, -0.03 - (i % 3) * 0.02]], 0.0016, { alpha: 0.35 });
-    g.text('雕陵之樊', -0.37, -0.2, 0.022, { color: 'rgba(40,34,30,.4)' });
+    g.text('雕陵栗园', -0.37, -0.2, 0.022, { color: 'rgba(40,34,30,.4)' });
     // 落在地上的栗苞与叶
     for (const [x, y] of [[-0.25, -0.12], [-0.05, -0.17], [0.1, -0.1]]) { g.circle(x, y, 0.012, 0.0018, { fill: 'rgba(196,150,84,.25)' }); for (let a = 0; a < TAU; a += 0.7) g.line(x + Math.cos(a) * 0.012, y + Math.sin(a) * 0.012, x + Math.cos(a) * 0.019, y + Math.sin(a) * 0.019, 0.0011, { alpha: 0.5 }); }
     for (const [x, y, a] of [[-0.15, -0.08, 0.4], [0.02, -0.21, -0.6]]) g.stroke([[x, y], [x + Math.cos(a) * 0.05, y + Math.sin(a) * 0.05]], 0.006, { alpha: 0.2 });
@@ -241,7 +241,7 @@ const ch21 = {
       const x = 0.37 + i * 0.009;
       g.stroke([[x - 0.05, 0.14 - (i % 3) * 0.01], [x - 0.046, -0.06 + (i % 4) * 0.01]], 0.0016, { alpha: 0.18 + (i % 2) * 0.08 });
     }
-    g.text('百仞之渊', 0.37, -0.1, 0.02, { color: 'rgba(40,34,30,.45)' });
+    g.text('百丈深潭', 0.37, -0.1, 0.02, { color: 'rgba(40,34,30,.45)' });
   },
   build(k) {
     // 悬崖
@@ -743,7 +743,7 @@ const ch26 = {
       }
       for (const t of [0.04, 0.13]) g.stroke([[-0.085, t], [0.1, t + 0.002]], 0.0025, { color: VERM });
     } });
-    const words = [...'言者所以在意'].map((c, i) => k.sprite({ w: 0.05, h: 0.05, delay: 0, pad: 0.005, draw: (g) => g.text(c, 0, 0.025, 0.036, { font: FONTS.serif, color: c === '意' ? VERM : INK }) }));
+    const words = [...'话是用来传意'].map((c, i) => k.sprite({ w: 0.05, h: 0.05, delay: 0, pad: 0.005, draw: (g) => g.text(c, 0, 0.025, 0.036, { font: FONTS.serif, color: c === '意' ? VERM : INK }) }));
     const yi = k.sprite({ w: 0.07, h: 0.07, delay: 0, pad: 0.005, draw: (g) => { g.circle(0, 0.035, 0.028, 0.003, { fill: 'rgba(176,67,45,.12)', color: VERM }); g.text('意', 0, 0.035, 0.03, { font: FONTS.brush, color: VERM }); } });
     k.hot(trap, 'quan'); k.hot(fu, 'fu'); k.hot(both(book, ...words), 'yan');
     const PER = 11;

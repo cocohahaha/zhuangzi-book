@@ -141,7 +141,7 @@ const ch14 = {
   ground(g) {
     const pts = ellipsePts(0, 0.12, 0.4, 0.2, 60);
     for (let i = 0; i < pts.length - 1; i += 2) g.stroke([pts[i], pts[i + 1]], 0.002, { smooth: false, alpha: 0.3 });
-    g.text('天 其 运 乎', -0.36, 0.52, 0.022, { color: 'rgba(40,34,30,.45)', align: 'left' });
+    g.text('天 在 转 吗', -0.36, 0.52, 0.022, { color: 'rgba(40,34,30,.45)', align: 'left' });
   },
   build(k) {
     const earth = k.card({ w: 0.62, h: 0.19, z: -0.1, delay: 0.1, draw: (g) => {
@@ -230,8 +230,8 @@ const ch14 = {
 const ch15 = {
   ground(g) {
     g.stroke([[-0.44, 0.08], [-0.04, 0.08]], 0.002, { alpha: 0.3 });
-    g.text('吐 故 纳 新', -0.43, -0.02, 0.02, { color: 'rgba(40,34,30,.45)', align: 'left' });
-    g.text('不 杂 则 清', 0.0, -0.13, 0.02, { color: 'rgba(40,34,30,.45)', align: 'left' });
+    g.text('吐 旧 纳 新', -0.43, -0.02, 0.02, { color: 'rgba(40,34,30,.45)', align: 'left' });
+    g.text('不 搅 就 清', 0.0, -0.13, 0.02, { color: 'rgba(40,34,30,.45)', align: 'left' });
   },
   build(k) {
     // 剖面的水盆：盆壁是纸，盆里透空

@@ -28,8 +28,8 @@ const pengBody = (g) => {
 // —— 一 · 逍遥游：鲲化为鹏 ——
 const ch1 = {
   ground(g) {
-    g.text('北 冥', -0.4, -0.06, 0.026, { color: 'rgba(40,34,30,.5)' });
-    g.text('南 冥', 0.38, 0.5, 0.026, { color: 'rgba(176,67,45,.7)' });
+    g.text('北 海', -0.4, -0.06, 0.026, { color: 'rgba(40,34,30,.5)' });
+    g.text('南 海', 0.38, 0.5, 0.026, { color: 'rgba(176,67,45,.7)' });
     const pts = [];
     for (let i = 0; i <= 30; i++) { const t = i / 30; pts.push([-0.3 + t * 0.66, 0.0 + Math.sin(t * Math.PI) * 0.5 * t + t * 0.0]); }
     for (let i = 0; i < pts.length - 1; i += 2) g.stroke([pts[i], pts[i + 1]], 0.0022, { smooth: false, alpha: 0.35 });
@@ -308,7 +308,7 @@ const knife = (g) => {
 
 const ch3 = {
   ground(g) {
-    g.text('依乎天理', -0.36, 0.42, 0.024, { color: 'rgba(176,67,45,.55)', vertical: true });
+    g.text('顺着纹理', -0.36, 0.42, 0.024, { color: 'rgba(176,67,45,.55)', vertical: true });
   },
   build(k) {
     const S = 1.12, OXX = 0.05;      // 牛放大、右移

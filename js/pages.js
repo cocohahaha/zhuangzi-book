@@ -187,7 +187,7 @@ function runningHead(g, page, label) {
 export const PAGE_FONTS_TEXT = (p) => {
   // 返回该页会用到的文字，用于按需加载网络字体
   if (p.type === 'text') return p.lines.map(l => l.chars.join('')).join('') + p.ch.title;
-  if (p.type === 'opener') return p.ch.title + p.meta.intro + p.meta.line + p.ch.part + '内外杂篇第一二三四五六七八九十本约字读完分钟名句白话导读';
+  if (p.type === 'opener') return p.ch.title + (p.ch.sub || '') + p.meta.intro + p.meta.line + p.ch.part + '内外杂篇第一二三四五六七八九十本约字读完分钟一句话导读故事全篇慢';
   return '';
 };
 
@@ -226,7 +226,7 @@ const DRAW = {
     setFont(g, 150, FONTS.brush);
     g.fillText('庄 子', PW / 2, PH - 360);
     setFont(g, 30); g.fillStyle = 'rgba(40,34,30,.75)';
-    g.fillText('三十三篇 · 简体全文 · 互动读本', PW / 2, PH - 270);
+    g.fillText('三十三篇 · 白话讲述 · 互动读本', PW / 2, PH - 270);
     setFont(g, 24); g.fillStyle = 'rgba(40,34,30,.5)';
     g.fillText('战国 · 庄周及其后学', PW / 2, PH - 220);
     const ink = new Ink(g, PW, PW / 2, PH * 0.5);
@@ -303,21 +303,22 @@ const DRAW = {
     const title = [...ch.title].join(' ');
     g.fillText(title, x - 4, 340);
     g.strokeStyle = 'rgba(40,34,30,.5)'; g.lineWidth = 1.5;
-    g.beginPath(); g.moveTo(x, 392); g.lineTo(x + 70, 392); g.stroke();
+    g.beginPath(); g.moveTo(x, 376); g.lineTo(x + 70, 376); g.stroke();
+    if (ch.sub) { g.fillStyle = 'rgba(40,34,30,.78)'; setFont(g, 34); g.fillText(ch.sub, x, 424); }
     g.fillStyle = 'rgba(40,34,30,.55)'; setFont(g, 25);
-    g.fillText('白话导读', x, 452);
-    let y = paragraphs(g, [meta.intro], x, 516, gridW, { size: 34, lh: 1.9, indent: false });
-    // 名句
-    y += 30;
-    g.fillStyle = 'rgba(40,34,30,.55)'; setFont(g, 25); g.fillText('名句', x, y);
-    setFont(g, 40, FONTS.brush);
-    const lines = wrapText(g, '「' + meta.line + '」', gridW - 40, 40);
+    g.fillText('导读', x, 474);
+    let y = paragraphs(g, [meta.intro], x, 530, gridW, { size: 32, lh: 1.78, indent: false });
+    // 一句话
+    y += 12;
+    g.fillStyle = 'rgba(40,34,30,.55)'; setFont(g, 25); g.fillText('一句话', x, y);
+    setFont(g, 36, FONTS.brush);
+    const lines = wrapText(g, meta.line, gridW - 40, 36);
     g.fillStyle = 'rgba(176,67,45,.07)';
-    g.fillRect(x - 6, y + 24, gridW + 12, lines.length * 64 + 40);
-    g.fillStyle = VERM; g.fillRect(x - 6, y + 24, 4, lines.length * 64 + 40);
-    g.fillStyle = INK; setFont(g, 40, FONTS.brush);
-    lines.forEach((l, i) => g.fillText(l, x + 22, y + 88 + i * 64));
-    y += lines.length * 64 + 120;
+    g.fillRect(x - 6, y + 24, gridW + 12, lines.length * 56 + 36);
+    g.fillStyle = VERM; g.fillRect(x - 6, y + 24, 4, lines.length * 56 + 36);
+    g.fillStyle = INK; setFont(g, 36, FONTS.brush);
+    lines.forEach((l, i) => g.fillText(l, x + 22, y + 82 + i * 56));
+    y += lines.length * 56 + 104;
     // 本篇故事：可点，直达那一页
     page.storyRects = [];
     if (page.stories.length) {
@@ -328,7 +329,7 @@ const DRAW = {
       for (const st of page.stories) {
         const w = g.measureText(st.label).width + 34;
         if (xx + w > x + gridW) { xx = x; y += 56; }
-        if (y > PH - 170) break;
+        if (y > PH - 150) break;
         g.strokeStyle = 'rgba(176,67,45,.45)'; g.lineWidth = 1.4;
         g.beginPath(); g.roundRect(xx, y - 32, w, 44, 22); g.stroke();
         g.fillStyle = 'rgba(40,34,30,.85)'; g.fillText(st.label, xx + 17, y);
@@ -339,7 +340,7 @@ const DRAW = {
     // 篇幅
     const mins = Math.max(1, Math.round(page.count / 400));
     g.fillStyle = 'rgba(40,34,30,.5)'; setFont(g, 24);
-    g.fillText(`原文约 ${page.count.toLocaleString()} 字 · 慢读约 ${mins} 分钟`, x, PH - 120);
+    g.fillText(`全篇约 ${page.count.toLocaleString()} 字 · 慢读约 ${mins} 分钟`, x, PH - 120);
   },
 
   scenepage(g, page) {
@@ -446,7 +447,7 @@ const LIVE = {
   },
 
   text(g, page, live) {
-    // 页边旁批：先在原文下划一道朱笔，再在页边写出名目
+    // 页边旁批：先在正文下划一道朱笔，再在页边写出名目
     const t = live.t;
     let busy = false, k = 0;
     const x0 = textX(page.side);
@@ -525,7 +526,7 @@ const LIVE = {
       g.globalAlpha = 1;
       // 手写的批注
       setFont(g, 34, FONTS.brush);
-      const qLines = wrapText(g, '「' + n.q + '」', gridW - 10, 34);
+      const qLines = wrapText(g, n.q, gridW - 10, 34);
       setFont(g, 28, FONTS.serif);
       const sLines = wrapText(g, n.s, gridW - 10, 28);
       const total = qLines.length + sLines.length;
