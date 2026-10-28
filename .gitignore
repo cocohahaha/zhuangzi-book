@@ -1,1 +1,4 @@
-screenshots/
+REWRITE_PROMPT.md
+screenshots/ref-every-joule-*.png
+.dev/
+node_modules/

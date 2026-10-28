@@ -4,43 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>庄子 · 互动书</title>
-<meta name="description" content="《庄子》三十三篇全文互动书：内篇七、外篇十五、杂篇十一。文本来自维基文库（公有领域）。">
-<meta name="theme-color" content="#6b4a30">
+<meta name="description" content="放在书桌上的《庄子》：三十三篇全文，每篇一幅会从纸面立起来的墨线插图。">
+<meta name="theme-color" content="#cfb48e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%225%22 fill=%22%232d4356%22/%3E%3Crect x=%2219%22 y=%224%22 width=%227%22 height=%2216%22 fill=%22%23f3ead6%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&display=swap">
-<link rel="stylesheet" href="css/book.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Ma+Shan+Zheng&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
 </head>
 <body>
-<main class="scene" id="scene">
-  <div class="desk" aria-hidden="true"></div>
+<canvas id="gl" aria-label="《庄子》立体书"></canvas>
 
-  <div class="stage" id="stage">
-    <div class="book is-loading" id="book" role="region" aria-label="庄子" aria-live="polite">
-      <div class="spine" aria-hidden="true"></div>
-      <div class="half half-left empty" id="half-left"></div>
-      <div class="half half-right empty" id="half-right"></div>
-      <div class="ribbon" aria-hidden="true"></div>
-    </div>
-  </div>
+<p id="loading" class="loading">展卷中……</p>
+<p id="hint" class="hint">轻点封面，翻开这本书</p>
 
-  <div class="light" aria-hidden="true"></div>
+<nav class="bar" aria-label="翻阅">
+  <button id="toc" class="btn" type="button" aria-label="目录" title="目录">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9"/></svg>
+  </button>
+  <button id="prev" class="btn" type="button" aria-label="上一页" title="上一页">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>
+  </button>
+  <div class="where"><span id="label">封面</span><small id="sub"></small></div>
+  <button id="next" class="btn" type="button" aria-label="下一页" title="下一页">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>
+  </button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="mute" class="btn" type="button" aria-label="静音" title="声音">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path class="wave" d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+  </button>
+</nav>
 
-  <p class="loading" id="loading">展卷中……</p>
-
-  <nav class="controls" id="controls" aria-label="翻页">
-    <button type="button" class="ctl" id="btn-prev" aria-label="上一页">‹ <span>上一页</span></button>
-    <button type="button" class="ctl ctl-toc" id="btn-toc">目录</button>
-    <span class="indicator" id="indicator" aria-live="polite"></span>
-    <button type="button" class="ctl" id="btn-next" aria-label="下一页"><span>下一页</span> ›</button>
-  </nav>
-</main>
-
-<div class="measure-wrap" aria-hidden="true">
-  <div class="page page--text side-right" id="measure"><div class="page-body"></div></div>
-</div>
-
-<noscript><p class="noscript">本书需要启用 JavaScript 才能翻阅。</p></noscript>
-<script src="js/book.js"></script>
+<noscript><p class="loading">这本书需要启用 JavaScript 才能翻阅。</p></noscript>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
