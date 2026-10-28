@@ -217,14 +217,16 @@ export class Popup {
     return item;
   }
 
-  // 由外部调用：点到了 key
-  hit(key) {
+  // 由外部调用：点到了 key（auto：自动播放触发的）
+  hit(key, auto = false) {
     const h = this._hotItems && this._hotItems[key];
     if (!h) return;
     for (const p of h.parts) { p.glowT = 1; p.litTarget = 1; }
     if (this.api.hit) this.api.hit(key);
-    this.onNote && this.onNote(key);
+    this.onNote && this.onNote(key, auto);
   }
+
+  hotKeys() { return Object.keys(this._hotItems || {}); }
 
   // 当前应该响应点击的网格（考虑纸片的透明部分）
   pick(raycaster) {
@@ -263,11 +265,15 @@ export class Popup {
           it.pivot.position.y = 0.0012;
           if (it.stand && !it.popped && r > 0.08) { it.popped = true; if (this.popped++ < 10) sfx.pop(); }
         }
-        // 点亮：重画纸片上的淡彩
-        if (Math.abs(it.lit - it.litTarget) > 0.01) {
-          it.lit = damp(it.lit, it.litTarget, 6, dt);
-          it.state.lit = it.lit;
-          it.redraw();
+        // 点亮：重画纸片上的淡彩（重画并上传纹理很贵，限制在每秒十几次）
+        if (it.lit !== it.litTarget) {
+          it.lit = Math.abs(it.litTarget - it.lit) < 0.01 ? it.litTarget : damp(it.lit, it.litTarget, 6, dt);
+          it.litDt = (it.litDt || 0) + dt;
+          if (it.lit === it.litTarget || it.litDt > 0.07) {
+            it.litDt = 0;
+            it.state.lit = it.lit;
+            it.redraw();
+          }
         }
         if (it.glowT > 0) {
           it.glow = damp(it.glow, it.glowT, 10, dt);

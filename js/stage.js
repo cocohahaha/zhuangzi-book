@@ -4,18 +4,21 @@ import { rng, damp } from './util.js';
 
 export function createStage(canvas, { mobile }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 2 : 1.75));
+  const maxPR = mobile ? 2 : 1.75;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // 手机上用便宜一点的 PCF；影子贴图只在画面有变化时才重画（见 app.js）
+  renderer.shadowMap.type = mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xcfb48e);
   scene.fog = new THREE.Fog(0xcfb48e, 9, 18);
 
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 40);
+  // 近裁面不要太近：深度精度够用，纸面与插图之间不会抢深度而闪烁
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.3, 30);
 
   // —— 灯光：天光、主光（投影）、侧补光 ——
   const hemi = new THREE.HemisphereLight(0xfff5e8, 0x8a6a4c, 1.2);
@@ -26,8 +29,8 @@ export function createStage(canvas, { mobile }) {
   key.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
   const sc = key.shadow.camera;
   sc.left = -2.0; sc.right = 2.0; sc.top = 1.7; sc.bottom = -1.7; sc.near = 1; sc.far = 12;
-  key.shadow.bias = -0.0004;
-  key.shadow.normalBias = 0.012;
+  key.shadow.bias = -0.0006;
+  key.shadow.normalBias = 0.015;
   key.shadow.radius = 4;
   scene.add(key, key.target);
   const spill = new THREE.DirectionalLight(0xe4ecff, 0.35);
@@ -49,7 +52,7 @@ export function createStage(canvas, { mobile }) {
   const cam = {
     target: new THREE.Vector3(0, 0, 0), want: new THREE.Vector3(),
     dist: 4, wantDist: 4, el: 0.98, wantEl: 0.98, az: 0, wantAz: 0,
-    par: new THREE.Vector2(), wantPar: new THREE.Vector2(),
+    still: false,
   };
   // 让一块区域（宽 w，深 d，中心 c）充满画面
   function frame(cx, cz, w, d, { el = 0.98, pad = 1.08, bottomUI = 70, snap = false } = {}) {
@@ -64,29 +67,34 @@ export function createStage(canvas, { mobile }) {
     const shift = (1 - avail) * dist * tv * 0.9;
     cam.want.set(cx, 0, cz + shift * 0.9);
     cam.wantDist = dist; cam.wantEl = el;
+    cam.still = false;
     if (snap) { cam.target.copy(cam.want); cam.dist = dist; cam.el = el; }
   }
+  // 返回 true 表示镜头还在动。快到位时直接落定：
+  // 否则阻尼会让镜头以亚像素的幅度一直漂，纸上的字和影子边缘随之“爬动”，看起来就是闪烁
   function updateCamera(dt) {
     const k = 3.2;
-    cam.target.x = damp(cam.target.x, cam.want.x, k, dt);
-    cam.target.y = damp(cam.target.y, cam.want.y, k, dt);
-    cam.target.z = damp(cam.target.z, cam.want.z, k, dt);
-    cam.dist = damp(cam.dist, cam.wantDist, k, dt);
-    cam.el = damp(cam.el, cam.wantEl, k, dt);
-    cam.par.x = damp(cam.par.x, cam.wantPar.x, 2, dt);
-    cam.par.y = damp(cam.par.y, cam.wantPar.y, 2, dt);
-    const el = cam.el + cam.par.y * 0.025;
-    const az = cam.par.x * 0.035;
-    camera.position.set(
-      cam.target.x + Math.sin(az) * Math.cos(el) * cam.dist,
-      cam.target.y + Math.sin(el) * cam.dist,
-      cam.target.z + Math.cos(az) * Math.cos(el) * cam.dist,
-    );
+    const err = cam.target.distanceTo(cam.want) + Math.abs(cam.dist - cam.wantDist) + Math.abs(cam.el - cam.wantEl);
+    if (err < 2e-4) {
+      if (cam.still) return false;
+      cam.target.copy(cam.want); cam.dist = cam.wantDist; cam.el = cam.wantEl;
+      cam.still = true;
+    } else {
+      cam.still = false;
+      cam.target.x = damp(cam.target.x, cam.want.x, k, dt);
+      cam.target.y = damp(cam.target.y, cam.want.y, k, dt);
+      cam.target.z = damp(cam.target.z, cam.want.z, k, dt);
+      cam.dist = damp(cam.dist, cam.wantDist, k, dt);
+      cam.el = damp(cam.el, cam.wantEl, k, dt);
+    }
+    camera.position.set(cam.target.x, cam.target.y + Math.sin(cam.el) * cam.dist, cam.target.z + Math.cos(cam.el) * cam.dist);
     camera.lookAt(cam.target);
+    return true;
   }
 
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();

@@ -8,14 +8,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cfb48e; col
   color: rgba(60,40,20,.7); background: #cfb48e; transition: opacity .8s ease; z-index: 5; }
 .loading.done { opacity: 0; pointer-events: none; }
 
-.hint { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translate(-50%, 8px); margin: 0;
-  font-size: 14px; letter-spacing: .2em; color: rgba(255,248,236,.92); text-shadow: 0 1px 6px rgba(60,35,15,.5);
-  opacity: 0; transition: opacity .6s, transform .6s; pointer-events: none; }
+.hint { position: fixed; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom)); transform: translate(-50%, 6px); margin: 0;
+  padding: 5px 14px; border-radius: 999px; white-space: nowrap; background: rgba(43,37,32,.55);
+  font-size: 13px; letter-spacing: .15em; color: rgba(255,248,236,.95);
+  opacity: 0; transition: opacity .6s, transform .6s; pointer-events: none; z-index: 4; }
 .hint.show { opacity: 1; transform: translate(-50%, 0); }
 
 .bar { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   display: flex; align-items: center; gap: 2px; padding: 5px 8px; border-radius: 999px;
-  background: rgba(250,244,232,.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  background: rgba(250,244,232,.94);
   box-shadow: 0 6px 22px rgba(60,35,15,.18), inset 0 0 0 1px rgba(255,255,255,.6); z-index: 4;
   opacity: 0; transition: opacity .8s .2s; }
 body.ready .bar { opacity: 1; }

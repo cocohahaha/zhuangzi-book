@@ -10,6 +10,9 @@ import { clamp, easeInOut, lerp, isTouch, reduceMotion } from './util.js';
 import * as sfx from './audio.js';
 
 const STORE = 'zhuangzi-book:v2';
+const HINTED = 'zhuangzi-book:hinted';
+// 插图页自动演示：页面立起来后，每隔一段时间依次“点亮”图中的一样东西并写出批注
+const AUTO_FIRST = 3.0, AUTO_GAP = 6.5;
 // 截图调试：?dt=0.5 允许更大的帧间隔（软件渲染时动画不至于太慢）
 const DTMAX = +(new URLSearchParams(location.search).get('dt') || 0.05);
 const $ = (s) => document.querySelector(s);
@@ -83,6 +86,7 @@ async function boot() {
     let busy = false;
     if (L && L.active) busy = drawLive(g, pages[i], L, { pages });
     e.tex.needsUpdate = true;
+    dirty = true;
     return busy;
   }
   function evict() {
@@ -94,6 +98,7 @@ async function boot() {
   const pageTex = (i) => (i >= 0 && i < pages.length) ? entry(i).tex : null;
 
   // —— 状态 ——
+  let dirty = true;            // 下一帧需要重画（静止时不重画，画面不会有任何抖动）
   let pos = 0;                 // 0：合上；m≥1：已翻过 m 张（含封面）
   let focus = 'R';             // 单页模式下看哪一边
   let zoom = false;            // 宽屏下双击放大单页
@@ -111,6 +116,7 @@ async function boot() {
     book.pageL.group.visible = li >= 0;
     if (li >= 0) { book.pageL.setMaps(null, pageTex(li)); book.pageL.shape(1, 0, hL(leftM)); }
     book.setHeights(hR(rightM), hL(leftM));
+    dirty = true;
   }
 
   // —— 翻页 ——
@@ -181,35 +187,43 @@ async function boot() {
     if (single()) {
       // 单页模式：先在左右页之间移动镜头
       if (dir > 0 && focus === 'L' && pos >= 1 && rightIdx(pos) >= 0) { focusRight(); return; }
-      if (dir < 0 && focus === 'R' && leftIdx(pos) >= 0) { focus = 'L'; reframe(); onSpreadUI(); return; }
+      if (dir < 0 && focus === 'R' && leftIdx(pos) >= 0) { focusLeft(); return; }
     }
     if (startFlip(dir)) {
-      if (single()) focus = dir > 0 ? 'L' : 'R';
+      // 双页时以左页为准（读的顺序先左后右），单页时停在翻过来的那一面
+      focus = single() ? (dir > 0 ? 'L' : 'R') : 'L';
       reframe();
     }
+    dismissHint();
   }
 
   // 单页模式下镜头移到右页：插图从头再立起来一次
   function focusRight() {
-    focus = 'R'; reframe(); onSpreadUI();
+    focus = 'R'; reframe(); onSpreadUI(); updateHash();
     if (popup && popup.T > 0.5) { popup.T = -0.25; for (const it of popup.items) it.popped = false; popup.popped = 0; }
+    if (popup && popup.auto) popup.auto.at = AUTO_FIRST;
   }
+  function focusLeft() { focus = 'L'; reframe(); onSpreadUI(); updateHash(); }
 
-  // 快速翻到第 m 张
-  function jumpTo(m) {
+  // 快速翻到第 m 张；side 指定落在哪一面（单页模式、地址栏用）
+  function jumpTo(m, side) {
     m = clamp(Math.round(m), 0, N + 1);
     if (flip || coverAnim || riffle) return;
-    if (m === pos) return;
-    if (Math.abs(m - pos) === 1 || pos === 0 || m === 0) {
-      if (pos === 0 && m > 1) {
-        // 先开封面，再翻
-        startFlip(1); pendingJump = m; return;
-      }
-      if (m === 0) { if (pos === 1) go(-1); else { pendingJump = 0; jumpTo(1); } return; }
-      go(m > pos ? 1 : -1); return;
+    dismissHint();
+    if (m === pos) {
+      if (side && side !== focus) { if (side === 'R') focusRight(); else focusLeft(); }
+      return;
     }
-    closePopup();
     const dir = m > pos ? 1 : -1;
+    const land = () => { focus = side || (single() ? (dir > 0 ? 'L' : 'R') : 'L'); reframe(); };
+    if (pos === 0 && m > 1) {
+      // 先开封面，再翻
+      startFlip(1); pendingJump = { m, side }; return;
+    }
+    if (m === 0) { if (pos === 1) go(-1); else { pendingJump = { m: 0 }; jumpTo(1); } return; }
+    if (Math.abs(m - pos) === 1 || pos === 0) { if (startFlip(dir)) land(); return; }
+    closePopup();
+    land();
     const k = Math.min(7, Math.abs(m - pos));
     const generic = pageTex(chapterPage[1] + 2);
     const leaves = [];
@@ -288,13 +302,16 @@ async function boot() {
     const L = liveOf(ri);
     popup = new Popup(SCENES[page.scene], {
       renderer, aniso,
-      onNote: (key) => {
+      onNote: (key, auto) => {
+        if (!page.meta || !page.meta.notes || !page.meta.notes[key]) return;
         L.found.add(key); L.note = { key, t0: L.t }; L.active = true; L.busy = true;
         sfx.brush();
-        if (single() && focus !== 'R') { focus = 'R'; reframe(); }
+        if (!auto && single() && focus !== 'R') focusRight();
       },
     });
     popup.page = ri;
+    const keys = Object.keys((page.meta && page.meta.notes) || {}).filter(k => popup.hotKeys().includes(k));
+    if (keys.length) popup.auto = { keys, i: 0, at: AUTO_FIRST };
     popup.root.position.set(W / 2, TB + hR(pos) + 0.0008, 0);
     popup.T = -0.35;
     book.group.add(popup.root);
@@ -313,14 +330,29 @@ async function boot() {
       }
     }
     openPopup();
-    if (pendingJump != null) { const m = pendingJump; pendingJump = null; setTimeout(() => jumpTo(m), 60); }
-    if (single()) {
-      if (leftIdx(pos) < 0) focus = 'R';
-      if (rightIdx(pos) < 0) focus = 'L';
-    }
+    if (pendingJump != null) { const j = pendingJump; pendingJump = null; setTimeout(() => jumpTo(j.m, j.side), 60); }
+    if (leftIdx(pos) < 0) focus = 'R';
+    if (rightIdx(pos) < 0) focus = 'L';
     reframe();
     onSpreadUI();
-    history.replaceState(null, '', pos >= 1 ? `#p=${(focus === 'L' && leftIdx(pos) >= 0 ? leftIdx(pos) : Math.max(0, rightIdx(pos))) + 1}` : location.pathname + location.search);
+    updateHash();
+  }
+
+  // 当前所指的那一页（0 起）：单页时是正在看的那面；双页时是 focus 一侧（翻页后为左页）
+  function curIdx() {
+    if (pos < 1) return -1;
+    return focus === 'L' && leftIdx(pos) >= 0 ? leftIdx(pos) : (rightIdx(pos) >= 0 ? rightIdx(pos) : leftIdx(pos));
+  }
+  // 地址栏里的 #p=N 与书页上印的页码一致（N = 下标 + 1）
+  function updateHash() {
+    const i = curIdx();
+    const url = i >= 0 ? `#p=${i + 1}` : location.pathname + location.search;
+    if ((i >= 0 ? location.hash : '') !== (i >= 0 ? url : '')) history.replaceState(null, '', url);
+  }
+  // 第 n 页（1 起）在第几张、哪一面
+  function spreadOf(n) {
+    const i = clamp(n - 1, 0, pages.length - 1);
+    return { m: i % 2 === 0 ? i / 2 + 1 : (i + 3) / 2, side: i % 2 === 0 ? 'R' : 'L' };
   }
 
   // —— 镜头 ——
@@ -345,7 +377,7 @@ async function boot() {
   function onSpreadUI() {
     let t = '封面', s = '';
     if (pos >= 1) {
-      const i = focus === 'L' && single() ? leftIdx(pos) : (rightIdx(pos) >= 0 ? rightIdx(pos) : leftIdx(pos));
+      const i = single() ? curIdx() : (rightIdx(pos) >= 0 ? rightIdx(pos) : leftIdx(pos));
       const page = pages[i] || pages[leftIdx(pos)];
       const ch = page && page.type !== 'after' && page.type !== 'colophon' && page.scene !== 'end' ? chapterAt(page.index) : null;
       if (ch) { t = ch.title; s = ch.part; }
@@ -353,25 +385,86 @@ async function boot() {
       else if (page && (page.type === 'intro1' || page.type === 'intro2' || page.scene === 'parts')) t = '导读';
       else if (page && page.index < 3) t = '扉页';
       else t = '读后';
-      s = (s ? s + ' · ' : '') + `第 ${i + 1} 页 / ${pages.length}`;
+      const li = leftIdx(pos), ri = rightIdx(pos);
+      const nums = !single() && li >= 0 && ri >= 0 ? `${li + 1}–${ri + 1}` : `${curIdx() + 1}`;
+      s = (s ? s + ' · ' : '') + `第 ${nums} 页 / ${pages.length}`;
     }
     label.textContent = t; sub.textContent = s;
     $('#prev').disabled = pos === 0;
     $('#next').disabled = pos >= N + 1;
-    $('#hint').classList.toggle('show', pos === 0);
+  }
+
+  // —— 一次性提示 ——
+  const hintEl = $('#hint');
+  let hintTimer = 0;
+  function showHint() {
+    let seen = false;
+    try { seen = !!localStorage.getItem(HINTED); } catch (_) { /* */ }
+    if (seen) return;
+    hintEl.textContent = isTouch() ? '左右或上下滑动翻页，轻点两侧也行' : '滚动滚轮、按方向键或点击两侧翻页';
+    hintEl.classList.add('show');
+    hintTimer = setTimeout(dismissHint, 7000);
+  }
+  function dismissHint() {
+    if (!hintEl.classList.contains('show')) return;
+    hintEl.classList.remove('show');
+    clearTimeout(hintTimer);
+    try { localStorage.setItem(HINTED, '1'); } catch (_) { /* */ }
   }
   $('#prev').addEventListener('click', () => { sfx.unlock(); go(-1); });
   $('#next').addEventListener('click', () => { sfx.unlock(); go(1); });
-  $('#toc').addEventListener('click', () => { sfx.unlock(); jumpTo(Math.floor(tocPage / 2) + 2); });
+  $('#toc').addEventListener('click', () => { sfx.unlock(); jumpTo(Math.floor(tocPage / 2) + 2, 'L'); });
   const muteBtn = $('#mute');
   const setMuteUI = () => { muteBtn.classList.toggle('off', sfx.isMuted()); muteBtn.setAttribute('aria-label', sfx.isMuted() ? '打开声音' : '静音'); };
   muteBtn.addEventListener('click', () => { sfx.unlock(); sfx.setMuted(!sfx.isMuted()); setMuteUI(); });
   setMuteUI();
   addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); sfx.unlock(); go(1); }
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); sfx.unlock(); go(-1); }
-    else if (e.key === 'Home') jumpTo(0);
-    else if (e.key === 'End') jumpTo(N + 1);
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key;
+    let dir = 0;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !e.shiftKey) || k === 'Enter') dir = 1;
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || (k === ' ' && e.shiftKey) || k === 'Backspace') dir = -1;
+    if (dir) {
+      // 焦点在按钮上时 Enter/空格 交给按钮本身
+      if ((k === 'Enter' || k === ' ') && e.target && e.target.closest && e.target.closest('button')) return;
+      e.preventDefault(); sfx.unlock(); go(dir);
+    } else if (k === 'Home') { e.preventDefault(); jumpTo(0); }
+    else if (k === 'End') { e.preventDefault(); jumpTo(N + 1); }
+  });
+
+  // —— 滚轮 / 触控板：一次手势只翻一页 ——
+  // 手势在停顿 220ms 后才算结束（触控板的惯性滚动会持续很久，不能算成多次）；
+  // 惯性衰减中突然又变大，说明是新的一次滑动。时间用事件自带的时间戳，主线程忙时也不会误判
+  const wheel = { acc: 0, lock: false, last: -1e9, mag: 0, at: -1e9 };
+  addEventListener('wheel', (e) => {
+    if (e.ctrlKey) return;               // 触控板捏合缩放
+    e.preventDefault();
+    const now = e.timeStamp || performance.now();
+    const unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? innerHeight : 1;
+    const dx = e.deltaX * unit, dy = e.deltaY * unit;
+    const d = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+    const mag = Math.abs(d);
+    const gap = now - wheel.last;
+    wheel.last = now;
+    if (wheel.lock && now - wheel.at > 350 && (gap > 220 || (mag > 12 && mag > wheel.mag * 2.2 && gap > 40))) wheel.lock = false;
+    wheel.mag = mag;
+    if (wheel.lock) return;
+    if (gap > 220) wheel.acc = 0;
+    wheel.acc += d;
+    if (Math.abs(wheel.acc) >= 24) {
+      sfx.unlock();
+      go(wheel.acc > 0 ? 1 : -1);
+      wheel.acc = 0; wheel.lock = true; wheel.at = now;
+    }
+  }, { passive: false });
+
+  // 手动改地址栏里的 #p=N 也能跳过去
+  addEventListener('hashchange', () => {
+    const hm = location.hash.match(/p=(\d+)/);
+    if (!hm) return;
+    const { m, side } = spreadOf(+hm[1]);
+    if (flip || coverAnim || riffle) pendingJump = { m, side };
+    else jumpTo(m, side);
   });
 
   // —— 指针：拖动翻页、点击插图、目录 ——
@@ -399,15 +492,23 @@ async function boot() {
     return Math.max(80, Math.abs(b.x - a.x) * innerWidth / 2);
   }
 
+  // 书脊在屏幕上的横坐标：点在它左边往回翻，右边往后翻
+  function spineX() {
+    if (single()) return innerWidth / 2;
+    const v = new THREE.Vector3(0, TB, 0).applyMatrix4(book.group.matrixWorld).project(camera);
+    return (v.x + 1) / 2 * innerWidth;
+  }
+
+  // 拖动书页翻（跟手），或者轻扫、轻点左右两半
   let drag = null;
   const el = renderer.domElement;
   el.addEventListener('pointerdown', (e) => {
     sfx.unlock();
     setRay(e);
-    drag = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, moved: false, flipping: false, hit: null };
-    if (popup) { const k = popup.pick(ray); if (k) { drag.hot = k; return; } }
-    const ph = pageHit();
-    drag.hit = ph;
+    drag = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, type: e.pointerType, moved: false, flipping: false, hit: null };
+    // 插图里的小机关只给鼠标用；手指点哪里都是翻页
+    if (popup && e.pointerType === 'mouse') { const k = popup.pick(ray); if (k) drag.hot = k; }
+    drag.hit = pageHit();
     try { el.setPointerCapture(e.pointerId); } catch (_) { /* */ }
   });
   el.addEventListener('pointermove', (e) => {
@@ -415,12 +516,13 @@ async function boot() {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) > 10) {
       drag.moved = true;
-      if (drag.hot) drag.hot = null;
-      // 横向拖动才翻页
+      drag.hot = null;
+      // 横向拖动：书页跟着手指走
       if (Math.abs(dx) > Math.abs(dy) * 0.8 && !flip && !coverAnim && !riffle) {
         const dir = dx < 0 ? 1 : -1;
+        dismissHint();
         if (single() && dir > 0 && focus === 'L' && rightIdx(pos) >= 0 && pos >= 1) { focusRight(); drag.done = true; return; }
-        if (single() && dir < 0 && focus === 'R' && leftIdx(pos) >= 0) { focus = 'L'; reframe(); onSpreadUI(); drag.done = true; return; }
+        if (single() && dir < 0 && focus === 'R' && leftIdx(pos) >= 0) { focusLeft(); drag.done = true; return; }
         if (pos === 0 || (dir < 0 && pos === 1)) { go(dir); drag.done = true; return; }
         const grabV = drag.hit ? 1 - drag.hit.uv.y : 0.75;
         if (startFlip(dir, 'drag', grabV)) { drag.flipping = true; drag.dir = dir; drag.px = pagePixels(); }
@@ -440,69 +542,63 @@ async function boot() {
   const up = (e) => {
     if (!drag) return;
     const d = drag; drag = null;
+    if (e.type === 'pointercancel' && !d.flipping) return;
     if (d.flipping && flip) {
       const prog = d.dir > 0 ? flip.t : 1 - flip.t;
       const vel = flip.v * d.dir;
-      const complete = prog > 0.4 || vel > 1.2;
+      const complete = prog > 0.3 || vel > 1.0;
       flip.target = complete ? (d.dir > 0 ? 1 : 0) : (d.dir > 0 ? 0 : 1);
       flip.released = true; flip.mode = 'auto'; flip.cancel = !complete;
       flip.rel = { t0: flip.t, k: 0 };
-      if (complete && single()) focus = d.dir > 0 ? 'L' : 'R';
+      if (complete) focus = single() ? (d.dir > 0 ? 'L' : 'R') : 'L';
       return;
     }
-    if (d.moved || d.done) return;
-    // 点击
-    if (d.hot && popup) { popup.hit(d.hot); return; }
+    if (d.done) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (d.moved) {
+      // 轻扫（含上下滑）：上滑/左滑往后，下滑/右滑往前
+      if (Math.hypot(dx, dy) < 30) return;
+      go(Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 1 : -1) : (dy < 0 ? 1 : -1));
+      return;
+    }
+    // 轻点
+    if (d.hot && popup) {
+      popup.hit(d.hot);
+      if (popup.auto) popup.auto.at = popup.T + AUTO_GAP * 1.5;
+      return;
+    }
     setRay(e);
-    if (pos === 0) { if (coverHit()) go(1); return; }
+    if (pos === 0) { go(1); return; }
     const ph = pageHit();
-    if (!ph) return;
-    const page = pages[ph.index];
+    const page = ph && pages[ph.index];
     if (page && page.type === 'toc') {
       const no = tocHit(page, ph.uv.x, ph.uv.y);
-      if (no) { sfx.tap(660, 0.2, 0.12); jumpTo(Math.floor(chapterPage[no] / 2) + 2); return; }
+      if (no) { sfx.tap(660, 0.2, 0.12); jumpTo(Math.floor(chapterPage[no] / 2) + 2, 'L'); return; }
     }
     if (page && page.type === 'opener') {
       const pi = storyHit(page, ph.uv.x, ph.uv.y);
-      if (pi != null) { sfx.tap(660, 0.2, 0.12); const m = pi % 2 === 0 ? pi / 2 + 1 : (pi + 3) / 2; focus = pi % 2 === 0 ? 'R' : 'L'; jumpTo(m); return; }
+      if (pi != null) { sfx.tap(660, 0.2, 0.12); const t = spreadOf(pi + 1); jumpTo(t.m, t.side); return; }
     }
-    // 点页面外侧三分之一：翻页
-    const u = ph.uv.x;
-    if (ph.side === 'R' && u > 0.72) go(1);
-    else if (ph.side === 'L' && u < 0.28) go(-1);
+    go(e.clientX < spineX() ? -1 : 1);
   };
   el.addEventListener('pointerup', up);
   el.addEventListener('pointercancel', up);
-  el.addEventListener('dblclick', (e) => {
-    if (narrow() || pos === 0) return;
-    setRay(e);
-    const ph = pageHit();
-    zoom = !zoom;
-    if (ph) focus = ph.side;
-    reframe(); onSpreadUI();
-  });
 
   let hoverKey = null, tocHover = null;
   function hover(e) {
-    if (isTouch()) return;
+    if (e.pointerType !== 'mouse') return;
     setRay(e);
-    stage.cam.wantPar.set((e.clientX / innerWidth - 0.5) * 2, (e.clientY / innerHeight - 0.5) * 2);
-    let k = popup ? popup.pick(ray) : null;
-    let cursor = k ? 'pointer' : '';
+    const k = popup ? popup.pick(ray) : null;
     if (k !== hoverKey) { hoverKey = k; popup && popup.setHover(k); }
-    let th = null;
-    if (!k && pos === 0) {
-      const c = coverHit();
-      coverTease = c ? 1 : 0;
-      if (c) cursor = 'pointer';
-    } else coverTease = 0;
+    let th = null, link = !!k;
+    if (!k && pos === 0) coverTease = coverHit() ? 1 : 0;
+    else coverTease = 0;
     if (!k && pos >= 1) {
       const ph = pageHit();
       if (ph) {
         const page = pages[ph.index];
-        if (page.type === 'toc') { th = tocHit(page, ph.uv.x, ph.uv.y); if (th) { cursor = 'pointer'; th = { i: ph.index, no: th }; } }
-        if (page.type === 'opener' && storyHit(page, ph.uv.x, ph.uv.y) != null) cursor = 'pointer';
-        if (!th && ((ph.side === 'R' && ph.uv.x > 0.72) || (ph.side === 'L' && ph.uv.x < 0.28))) cursor = 'grab';
+        if (page.type === 'toc') { th = tocHit(page, ph.uv.x, ph.uv.y); if (th) { link = true; th = { i: ph.index, no: th }; } }
+        if (page.type === 'opener' && storyHit(page, ph.uv.x, ph.uv.y) != null) link = true;
       }
     }
     if ((th && th.no) !== (tocHover && tocHover.no)) {
@@ -510,7 +606,8 @@ async function boot() {
       if (th) { const L = liveOf(th.i); L.hover = th.no; L.busy = true; L.active = true; }
       tocHover = th;
     }
-    el.style.cursor = cursor;
+    // 链接处是手指；其余地方提示往哪边翻
+    el.style.cursor = link ? 'pointer' : pos === 0 ? 'pointer' : (e.clientX < spineX() ? (pos > 0 ? 'w-resize' : '') : (pos < N + 1 ? 'e-resize' : ''));
   }
   let coverTease = 0, teaseV = 0;
 
@@ -519,9 +616,8 @@ async function boot() {
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (_) { /* */ }
   const hm = location.hash.match(/p=(\d+)/);
   if (hm) {
-    const i = clamp(+hm[1] - 1, 0, pages.length - 1);
-    pos = i % 2 === 0 ? i / 2 + 1 : (i + 3) / 2;
-    focus = i % 2 === 0 ? 'R' : 'L';
+    const t = spreadOf(+hm[1]);
+    pos = t.m; focus = t.side;
   } else if (saved && saved.pos >= 1) { pos = clamp(saved.pos, 1, N + 1); focus = saved.focus || 'R'; }
   book.setCover(pos >= 1 ? 1 : 0);
   applyStatic(pos);
@@ -529,13 +625,15 @@ async function boot() {
   settle();
   onSpreadUI();
 
-  addEventListener('resize', () => { stage.resize(); reframe(); onSpreadUI(); });
+  addEventListener('resize', () => { stage.resize(); reframe(); onSpreadUI(); dirty = true; });
 
   // —— 渲染循环 ——
   const timer = new THREE.Clock();
   $('#loading').classList.add('done');
   document.body.classList.add('ready');
+  setTimeout(showHint, 900);
   const reduce = reduceMotion();
+  let liveDt = 0;
 
   function frame() {
     const dt = Math.min(DTMAX, timer.getDelta());
@@ -554,8 +652,13 @@ async function boot() {
         settle();
       } else if (coverAnim.t > 0.15) reframe();
     } else if (pos === 0) {
-      teaseV = lerp(teaseV, coverTease ? 0.07 : 0.012 * (1 + Math.sin(clock * 1.6)) * 0.5, 1 - Math.exp(-6 * dt));
-      book.setCover(teaseV);
+      // 鼠标停在封面上时微微掀起；其余时候完全静止（以前一直在“呼吸”，画面就一直在抖）
+      const want = coverTease ? 0.05 : 0;
+      if (teaseV !== want) {
+        teaseV = Math.abs(teaseV - want) < 1e-4 ? want : lerp(teaseV, want, 1 - Math.exp(-6 * dt));
+        book.setCover(teaseV);
+        dirty = true;
+      }
     }
 
     // 翻页
@@ -570,8 +673,15 @@ async function boot() {
     }
     if (riffle) updateRiffle(dt);
 
-    // 插图
-    if (popup) popup.update(dt);
+    // 插图：自己演，不用点
+    if (popup) {
+      const a = popup.auto;
+      if (a && !popup.closing && (!single() || focus === 'R') && popup.T >= a.at) {
+        popup.hit(a.keys[a.i++ % a.keys.length], true);
+        a.at = popup.T + AUTO_GAP;
+      }
+      popup.update(dt);
+    }
     for (let i = dying.length - 1; i >= 0; i--) {
       const p = dying[i];
       if (p.follow && flip) p.F = Math.min(p.F, clamp(1 - Math.abs(flip.t - flip.start) * 6));
@@ -579,23 +689,29 @@ async function boot() {
       if (p.F <= 0) { p.dispose(); dying.splice(i, 1); }
     }
 
-    // 页面动态层
+    // 页面动态层（批注写字等）：重画整页并上传纹理，约 30 次/秒就够了
+    liveDt += dt;
+    const liveTick = liveDt >= 1 / 32;
     for (const i of visibleIndices()) {
       const L = live.get(i);
       if (!L || !L.active) continue;
       L.t += dt;
-      if (L.busy) { const e = cache.get(i); if (e) L.busy = composite(i, e); }
+      if (L.busy && liveTick) { const e = cache.get(i); if (e) L.busy = composite(i, e); }
     }
+    if (liveTick) liveDt = 0;
 
-    book.updateRibbon(clock);
-    stage.updateCamera(dt);
-    renderer.render(scene, camera);
+    const camMoving = stage.updateCamera(dt);
+    // 只有画面真的在变时才重画
+    if (dirty || camMoving || coverAnim || flip || riffle || popup || dying.length || drag) {
+      renderer.render(scene, camera);
+      dirty = false;
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 
   // 调试/截图用
-  window.__book = { stage, book, go, jumpTo, get pos() { return pos; }, get flip() { return flip && { t: flip.t, mode: flip.mode, released: flip.released, h: [flip.hFrom, flip.hTo], vis: flip.leaf.group.visible, parent: !!flip.leaf.group.parent }; }, get drag() { return drag; }, N, pages, chapterPage, hit: (k) => popup && popup.hit(k), setZoom: (z, f) => { zoom = z; if (f) focus = f; reframe(true); onSpreadUI(); } };
+  window.__book = { stage, book, go, jumpTo, get pos() { return pos; }, get focus() { return focus; }, get busy() { return !!(flip || coverAnim || riffle || pendingJump); }, get popupT() { return popup && popup.T; }, get found() { return popup && popup.page != null ? [...liveOf(popup.page).found] : []; }, get flip() { return flip && { t: flip.t, mode: flip.mode, released: flip.released, h: [flip.hFrom, flip.hTo], vis: flip.leaf.group.visible, parent: !!flip.leaf.group.parent }; }, get drag() { return drag; }, N, pages, chapterPage, hit: (k) => popup && popup.hit(k), setZoom: (z, f) => { zoom = z; if (f) focus = f; reframe(true); onSpreadUI(); } };
 }
 
 boot().catch((e) => {

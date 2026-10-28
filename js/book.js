@@ -264,6 +264,7 @@ export class Book {
     this.coverOpen = 0;
     this.hR = T; this.hL = 0;
     this._blockKey = '';
+    this.updateRibbon();
   }
 
   makeRibbon() {
@@ -278,16 +279,17 @@ export class Book {
     return mesh;
   }
 
-  updateRibbon(time) {
+  // 丝带只随书叠高度变化，不再随时间摆动（一直轻摆会让它和纸面的交线不停闪）
+  updateRibbon() {
     const p = this.ribbon.geometry.attributes.position;
     const n = this._ribN;
     const top = TB + Math.max(this.hR, this.hL) * 0.5 + 0.002;
     for (let i = 0; i <= n; i++) {
       const s = i / n;              // 0 在书里，1 在桌上的末端
       const len = 0.26;
-      let z = H / 2 - 0.02 + s * len;
-      let y = Math.max(0.0015, top * (1 - smoothStep(0, 0.35, s)) - 0.004 * s);
-      let x = 0.05 + s * 0.06 + Math.sin(s * 3 + time * 0.6) * 0.004 * s;
+      const z = H / 2 - 0.02 + s * len;
+      const y = Math.max(0.0015, top * (1 - smoothStep(0, 0.35, s)) - 0.004 * s);
+      const x = 0.05 + s * 0.06 + Math.sin(s * 3) * 0.004 * s;
       for (let k = 0; k < 2; k++) {
         const vi = i * 2 + k;
         const off = (k ? 0.5 : -0.5) * 0.022;
@@ -309,6 +311,7 @@ export class Book {
     this.blockL.geometry = blockGeometry(hL);
     this.blockR.visible = hR >= 0.005;
     this.blockL.visible = hL >= 0.005;
+    this.updateRibbon();
   }
 
   getLeaf() {
@@ -328,7 +331,8 @@ export class Book {
   setCover(a) {
     this.coverOpen = a;
     const ang = Math.PI * a;
-    const top = TB + T;
+    // 合上时封面内侧与第一页恰好同一平面，会抢深度闪烁；垫高一点点
+    const top = TB + T + 0.0015;
     // 铰链从书顶落到桌面
     this.coverHinge.position.set(0, lerp(top, TB, smoothStep(0.05, 0.95, a)), 0);
     this.coverHinge.rotation.z = ang;

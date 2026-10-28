@@ -498,7 +498,7 @@ const LIVE = {
     if (keys.length) {
       g.save();
       setFont(g, 26); g.fillStyle = 'rgba(40,34,30,.6)'; g.textAlign = 'left';
-      const lead = meta.hint || '点一点图中的';
+      const lead = meta.hint || '图中';
       g.fillText(lead + '：', x, cy + 58);
       let xx = x + g.measureText(lead + '：').width + 6;
       for (const k of keys) {
@@ -516,8 +516,8 @@ const LIVE = {
       g.restore();
     }
     const note = live.note;
-    if (note) {
-      const n = meta.notes[note.key];
+    const n = note && meta.notes && meta.notes[note.key];
+    if (n) {
       const p = (live.t - note.t0) / 1.6;
       if (p < 1.2) busy = true;
       const top = cy + 96;
